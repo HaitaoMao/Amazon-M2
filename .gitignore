@@ -1,0 +1,12 @@
+saved/
+__pycache__/
+*.log #log files
+*.pth
+*.pyc
+*.csv
+*.zip
+*.npy
+*.tar.gz
+log/
+log_tensorboard/
+sample 3/
