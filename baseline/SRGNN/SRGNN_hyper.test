@@ -1,0 +1,2 @@
+learning_rate choice [0.001,0.0001]
+step choice [1, 2]
