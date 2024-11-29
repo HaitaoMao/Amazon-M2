@@ -44,9 +44,12 @@ We provide some example usage under the folder `baseline` with the shell scripts
 
 ## Requirements
 
+We have provided the yaml file of conda environment.
+Once the following command is executed,
 ```
-conda install -c aibox recbole=1.2.0
+conda env create -f environment.yml
 ```
+here should be a conda environment titled as `amazon`, which can be activated via `conda activate amazon`
 
 
 ## Acknowledgement
