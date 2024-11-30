@@ -1,6 +1,6 @@
 # Amazon M2
 
-This is the official implementation for [Amazon-M2: A Multilingual Multi-locale Shopping Session Dataset for Recommendation and Text Generation](https://arxiv.org/pdf/2307.09688.pdf) accepted by NeurIPS'22. Moreover, the dataset is utilized a competition in the KDD CUP 2023 and have attracted thousands of teams and submissions. The instructions of the KDD CUP challenge can be found at [here](https://www.aicrowd.com/challenges/amazon-kdd-cup-23-multilingual-recommendation-challenge)
+This is the official implementation for [Amazon-M2: A Multilingual Multi-locale Shopping Session Dataset for Recommendation and Text Generation](https://arxiv.org/pdf/2307.09688.pdf) accepted by NeurIPS'22. Moreover, the dataset is utilized a competition in the KDD CUP 2023 and have attracted thousands of teams and submissions. The instructions of the KDD CUP challenge can be found at [here](https://www.aicrowd.com/challenges/amazon-kdd-cup-23-multilingual-recommendation-challenge). Useful notebooks can be found at [here](https://www.aicrowd.com/challenges/amazon-kdd-cup-23-multilingual-recommendation-challenge/notebooks). 
 
 ## Abstract
 
