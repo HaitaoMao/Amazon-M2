@@ -220,7 +220,6 @@ if __name__ == "__main__":
         all_items.update(prev_items)
     item_indices = [dataset.field2token_id['item_id'][i] for i in all_items]
     item_indices = torch.tensor(item_indices, dtype=torch.long)
-    # import ipdb; ipdb.set_trace()
     mask = torch.zeros(dataset.item_num).bool()
     mask[item_indices] = True
     mask_indices = mask.nonzero().squeeze()

@@ -5,10 +5,10 @@ from recbole.config import Config
 from recbole.data import create_dataset
 from recbole.data.utils import get_dataloader
 from recbole.utils import init_logger, init_seed, get_model, get_trainer, set_color
-from SRGNNF import SRGNNF
 import torch
 import numpy as np
 import pandas as pd
+
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -62,7 +62,7 @@ def get_args():
         "--num_layers", type=int, default=1, help="num layers."
     )
     parser.add_argument(
-        "--step", type=int, default=1, help="num steps."
+        "--step", type=int, default=1, help="num layers."
     )
     parser.add_argument(
         "--saved_model", type=str, default=None, help="saved model."
@@ -122,23 +122,8 @@ if __name__ == "__main__":
 
     # dataset splitting
     # train_dataset = dataset.build()[0]
-    # dataset.data_augmentation()
     train_dataset, test_dataset = dataset.build()
-    locale2id = dataset.field2token_id['item_locale']
-    locales = [locale2id[locale] for locale in ['IT', 'FR', 'ES']]
-    # locales = [locale2id[locale] for locale in ['UK', 'DE', 'JP']]
-    print(train_dataset)
-    train_condition = torch.zeros(len(train_dataset[:]), dtype=torch.bool)
-    for value in locales:
-        train_condition = train_condition | (train_dataset['item_locale'] == value)
-    train_inter = train_dataset[train_condition]
-    train_dataset = train_dataset.copy(train_inter)
-    test_condition = torch.zeros(len(test_dataset[:]), dtype=torch.bool)
-    for value in locales:
-        test_condition = test_condition | (test_dataset['item_locale'] == value)
-    test_inter = test_dataset[test_condition]
-    test_dataset = test_dataset.copy(test_inter)
-    print(train_dataset)
+    # import ipdb; ipdb.set_trace()
     if args.validation:
         train_dataset.shuffle()
         new_train_dataset, new_test_dataset = train_dataset.split_by_ratio(
@@ -169,12 +154,14 @@ if __name__ == "__main__":
     # trainer loading and initialization
     trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
     trainer.resume_checkpoint(f'saved/{args.saved_model}')
-    # # import ipdb; ipdb.set_trace()
-    # # model training and evaluation
-    # # test_score, test_result = trainer.fit(
-    # #     train_data, test_data, saved=True, show_progress=config["show_progress"]
-    # # )
-    # # logger.info(set_color("test result", "yellow") + f": {test_result}")
+    # import ipdb; ipdb.set_trace()
+    # model training and evaluation
+    # test_score, test_result = trainer.fit(
+    #     train_data, test_data, saved=True, show_progress=config["show_progress"]
+    # )
+    # logger.info(set_color("test result", "yellow") + f": {test_result}")
+    # import ipdb; ipdb.set_trace()
+    id2token = dataset.field2id_token['item_id_list']
     model.eval()
     all_indices = []
     for batch_idx, batched_data in enumerate(test_data):
@@ -190,9 +177,7 @@ if __name__ == "__main__":
     predictions = dataset.field2id_token['item_id_list'][all_indices]
     df_test = pd.read_csv(f'./{args.dataset}/{args.dataset}.test.inter', sep='\t')
     predictions = predictions.tolist()
-    # import ipdb; ipdb.set_trace()
-    df_test = df_test.drop(df_test.index[:360625])
-    df_test['next_item_prediction'] = predictions[33576:]
-    # import ipdb; ipdb.set_trace()
-    
-    df_test.to_csv(f'{args.dataset}/{args.model}_{args.dataset}.csv', sep='\t')
+    df_test['next_item_prediction'] = predictions
+    df_test = df_test.drop(df_test.index[:327049])
+    # df_test = df_test.drop(columns=['Unnamed: 0'])
+    df_test.to_csv(f'{args.dataset}/{args.model}_{args.dataset}_all.csv', sep='\t')

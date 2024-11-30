@@ -9,6 +9,7 @@ from SRGNNF import SRGNNF
 import torch
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 
 def get_args():
@@ -66,9 +67,32 @@ def get_args():
         "--step", type=int, default=1, help="num layers."
     )
     parser.add_argument(
-        "--saved_model", type=str, default=None, help="saved model."
+        "--saved_model", type=str, default=None, help="saved model path."
+    )
+    parser.add_argument(
+        "--epochs", type=int, default=300, help="num epochs."
+    )
+    parser.add_argument(
+        "--stopping_step", type=int, default=10, help="stopping step."
     )
     return parser.parse_known_args()[0]
+
+def get_rank(row):
+    try:
+        return row['next_item_prediction'].index(row['item_id:token']) + 1
+    except ValueError:
+        return 0
+
+def get_recall(row):
+    return row['item_id:token'] in row['next_item_prediction']
+
+
+def str2list(x):
+    # x = x.replace('[', '').replace(']', '').replace("'", '').replace('\n', ' ').replace('\r', ' ')
+    l = [i for i in x.split(' ') if i]
+    return l
+
+
 
 
 if __name__ == "__main__":
@@ -103,6 +127,8 @@ if __name__ == "__main__":
         "load_col": {'inter': ['session_id', 'item_id_list', 'item_id', 'item_locale'], 'item': ['item_id', 'embedding']} if args.model.endswith('F') else None,
         "pooling_mode": "sum",
         "numerical_features": ["embedding"] if args.model.endswith('F') else [],
+        "epochs": args.epochs,
+        "stopping_step": args.stopping_step,
     }
     # import ipdb; ipdb.set_trace()
     config = Config(
@@ -123,8 +149,24 @@ if __name__ == "__main__":
 
     # dataset splitting
     # train_dataset = dataset.build()[0]
+    # dataset.data_augmentation()
     train_dataset, test_dataset = dataset.build()
+    locale2id = dataset.field2token_id['item_locale']
+    locales = [locale2id[locale] for locale in ['IT', 'FR', 'ES']]
+    # locales = [locale2id[locale] for locale in ['UK', 'DE', 'JP']]
     # import ipdb; ipdb.set_trace()
+    print(train_dataset)
+    train_condition = torch.zeros(len(train_dataset[:]), dtype=torch.bool)
+    for value in locales:
+        train_condition = train_condition | (train_dataset['item_locale'] == value)
+    train_inter = train_dataset[train_condition]
+    train_dataset = train_dataset.copy(train_inter)
+    test_condition = torch.zeros(len(test_dataset[:]), dtype=torch.bool)
+    for value in locales:
+        test_condition = test_condition | (test_dataset['item_locale'] == value)
+    test_inter = test_dataset[test_condition]
+    test_dataset = test_dataset.copy(test_inter)
+    print(train_dataset)
     if args.validation:
         train_dataset.shuffle()
         new_train_dataset, new_test_dataset = train_dataset.split_by_ratio(
@@ -154,31 +196,60 @@ if __name__ == "__main__":
 
     # trainer loading and initialization
     trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
-    trainer.resume_checkpoint(f'saved/{args.saved_model}')
+    trainer.resume_checkpoint('saved/'+args.saved_model)
     # import ipdb; ipdb.set_trace()
     # model training and evaluation
-    # test_score, test_result = trainer.fit(
-    #     train_data, test_data, saved=True, show_progress=config["show_progress"]
-    # )
-    # logger.info(set_color("test result", "yellow") + f": {test_result}")
-    # import ipdb; ipdb.set_trace()
-    id2token = dataset.field2id_token['item_id_list']
+    test_score, test_result = trainer.fit(
+        train_data, test_data, saved=True, show_progress=config["show_progress"]
+    )
+    logger.info(set_color("test result", "yellow") + f": {test_result}")
+
     model.eval()
+    df_train = pd.read_csv('./amazon_unpopular/amazon_unpopular.train.inter', sep='\t')
+    df_test = pd.read_csv('./amazon_unpopular/amazon_unpopular.test.inter', sep='\t')
+    all_items = set()
+    # import ipdb; ipdb.set_trace()
+    for _, row in tqdm(df_train.iterrows(), total=len(df_train)):
+        prev_items = str2list(row['item_id_list:token_seq'])
+        next_item = row['item_id:token']
+        all_items.add(next_item)
+        all_items.update(prev_items)
+
+    for _, row in tqdm(df_test.iterrows(), total=len(df_test)):
+        prev_items = str2list(row['item_id_list:token_seq'])
+        all_items.update(prev_items)
+    item_indices = [dataset.field2token_id['item_id'][i] for i in all_items]
+    item_indices = torch.tensor(item_indices, dtype=torch.long)
+    mask = torch.zeros(dataset.item_num).bool()
+    mask[item_indices] = True
+    mask_indices = mask.nonzero().squeeze()
+
+    trainer.resume_checkpoint('saved/'+args.saved_model)
+    model.eval()
+
     all_indices = []
     for batch_idx, batched_data in enumerate(test_data):
         interaction, history_index, positive_u, positive_i = batched_data
         interaction = interaction.to(config['device'])
         scores = model.full_sort_predict(interaction)
+        # import ipdb; ipdb.set_trace()
         scores[:, 0] = -np.inf
         if history_index is not None:
             scores[history_index] = -np.inf
-        values, indices = scores.topk(100)
-        all_indices.append(indices.cpu())
+        scores_masked = scores[:, mask]
+        values, indices = scores_masked.topk(100)
+        indices = indices.cpu()
+        indices = mask_indices[indices]
+        all_indices.append(indices)
     all_indices = torch.cat(all_indices, dim=0)
     predictions = dataset.field2id_token['item_id_list'][all_indices]
-    df_test = pd.read_csv(f'./{args.dataset}/{args.dataset}.test.inter', sep='\t')
     predictions = predictions.tolist()
     df_test['next_item_prediction'] = predictions
-    df_test = df_test.drop(df_test.index[:327049])
-    # df_test = df_test.drop(columns=['Unnamed: 0'])
-    df_test.to_csv(f'{args.dataset}/{args.model}_{args.dataset}_all.csv', sep='\t')
+    df_test.to_csv(f'{args.model}_{args.dataset}.csv', sep='\t')
+    df_test['rank'] = df_test.apply(get_rank, axis=1)
+    # import ipdb; ipdb.set_trace()
+    mrr = df_test['rank'].apply(lambda x: 1/x if x>0 else 0).mean()
+    df_test['recall'] = df_test.apply(get_recall, axis=1)
+    recall_at_100 = df_test['recall'].mean()
+    print(f'MRR@100: {mrr}', f'recall@100: {recall_at_100}')
+    logger.info(f'Finetune: MRR@100: {mrr}, recall@100: {recall_at_100}')
