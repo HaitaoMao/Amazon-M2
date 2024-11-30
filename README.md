@@ -29,7 +29,7 @@ The folders with the prefix `amazon` contain both the `train` and `test` sets.
 
 ### Privated Released Datasets
 
-For all of the three tasks `task1`, `task2` and `task3`, the private test sets of the KDD CUP [Challenges]((https://www.aicrowd.com/challenges/amazon-kdd-cup-23-multilingual-recommendation-challenge)) are also included under the folder `dataset`
+For all of the three tasks `task1`, `task2` and `task3`, the private test sets of the KDD CUP [Challenges]((https://www.aicrowd.com/challenges/amazon-kdd-cup-23-multilingual-recommendation-challenge)) are also included under the folder `task1`, `task2` and `task3` respectively.
 
 
 
